@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학생관리</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container" style="text-align: center;">
+        <h1>학생 목록</h1>
+        <button type="button" class="btn btn-primary my-3" data-bs-toggle="modal" data-bs-target="#studentModal" onclick="resetForm()">학생 추가</button>
+        
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th scope="col">No.</th>
+                    <th scope="col">학생명</th>
+                    <th scope="col">이메일 주소</th>
+                    <th scope="col">학번</th>
+                    <th scope="col">전화번호</th>
+                    <th scope="col">수정 / 삭제</th>
+                </tr>
+            </thead>
+            <tbody id="student-list"></tbody>
+        </table>
+    </div>
+
+    <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="studentModalLabel">학생 추가</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addStudentForm">
+                        <div class="mb-3">
+                            <label for="create_stud_name">학생명</label>
+                            <input type="text" class="form-control" id="create_stud_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="create_stud_phone">전화번호</label>
+                            <input type="text" class="form-control" id="create_stud_phone" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="create_stud_email">이메일 주소</label>
+                            <input type="text" class="form-control" id="create_stud_email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="create_stud_stdid">학번</label>
+                            <input type="text" class="form-control" id="create_stud_stdid" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="submitButton">추가</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let editMode = false;
+        let editId = null;
+
+        function resetForm() {
+            document.getElementById("addStudentForm").reset();
+            document.getElementById("studentModalLabel").innerText = "학생 추가";
+            document.getElementById("submitButton").innerText = "추가";
+            editMode = false;
+            editId = null;
+        }
+
+        async function loadStudentList() {
+            const studentList = document.getElementById("student-list");
+            try {
+                const response = await fetch("https://672e1dd5229a881691ef09f0.mockapi.io/api/students/students");
+                const students = await response.json();
+
+                studentList.innerHTML = "";
+                students.forEach((student, index) => {
+                    const row = `
+                        <tr>
+                            <th scope="row">${index + 1}</th>
+                            <td>${student.name}</td>
+                            <td>${student.email}</td>
+                            <td>${student.studentId}</td>
+                            <td>${student.phone}</td>
+                            <td>
+                                <button onclick="loadStudentForEdit('${student.id}')" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#studentModal">수정</button>
+                                <button onclick="deleteStudent('${student.id}')" class="btn btn-danger btn-sm">삭제</button>
+                            </td>
+                        </tr>
+                    `;
+                    studentList.innerHTML += row;
+                });
+            } catch (error) {
+                console.error("데이터 로드 실패:", error);
+            }
+        }
+
+        async function loadStudentForEdit(id) {
+            try {
+                const response = await fetch(`https://672e1dd5229a881691ef09f0.mockapi.io/api/students/students/${id}`);
+                const student = await response.json();
+
+                document.getElementById("create_stud_name").value = student.name;
+                document.getElementById("create_stud_phone").value = student.phone;
+                document.getElementById("create_stud_email").value = student.email;
+                document.getElementById("create_stud_stdid").value = student.studentId;
+
+                editMode = true;
+                editId = id;
+                document.getElementById("studentModalLabel").innerText = "학생 수정";
+                document.getElementById("submitButton").innerText = "수정 완료";
+            } catch (error) {
+                console.error("데이터 로드 실패:", error);
+            }
+        }
+
+        async function saveStudentData(event) {
+            event.preventDefault();
+
+            const studentData = {
+                studentId: document.getElementById("create_stud_stdid").value,
+                name: document.getElementById("create_stud_name").value,
+                phone: document.getElementById("create_stud_phone").value,
+                email: document.getElementById("create_stud_email").value
+            };
+
+            try {
+                let response;
+                if (editMode) {
+                    response = await fetch(`https://672e1dd5229a881691ef09f0.mockapi.io/api/students/students/${editId}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(studentData)
+                    });
+                } else {
+                    response = await fetch("https://672e1dd5229a881691ef09f0.mockapi.io/api/students/students", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(studentData)
+                    });
+                }
+
+                if (response.ok) {
+                    alert(editMode ? "학생 정보가 수정되었습니다." : "학생 정보가 추가되었습니다.");
+                    const modal = bootstrap.Modal.getInstance(document.getElementById("studentModal"));
+                    modal.hide();
+                    loadStudentList();
+                } else {
+                    throw new Error(`요청 실패: 상태 코드 ${response.status}`);
+                }
+            } catch (error) {
+                console.error("저장 실패:", error);
+                alert("저장에 실패했습니다.");
+            }
+        }
+
+        async function deleteStudent(id) {
+            if (confirm("정말로 삭제하시겠습니까?")) {
+                try {
+                    const response = await fetch(`https://672e1dd5229a881691ef09f0.mockapi.io/api/students/students/${id}`, {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" }
+                    });
+                    if (response.ok) {
+                        alert("학생 정보가 삭제되었습니다.");
+                        loadStudentList();
+                    } else {
+                        throw new Error(`삭제 실패: 상태 코드 ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error("삭제 실패:", error);
+                    alert("삭제에 실패했습니다.");
+                }
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadStudentList();
+            document.getElementById("addStudentForm").addEventListener("submit", saveStudentData);
+        });
+    </script>
+</body>
+</html>
