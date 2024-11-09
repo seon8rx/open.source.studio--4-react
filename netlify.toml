@@ -1,4 +1,3 @@
 [build]
-  base = "my-first-react-app" # 프로젝트가 들어있는 폴더로 설정
   publish = "my-first-react-app/build"
   command = "CI=true npm run build"
